@@ -6,49 +6,83 @@ import clsx from 'clsx';
 
 
 interface TypeTesterProps {
-  inputText: string;
+  text: string;
 
 }
 
-const TypeTester: React.FC<TypeTesterProps> = ({ inputText }) => {
-  const [text, setText] = useState<string>("");
+const TypeTester: React.FC<TypeTesterProps> = ({ text }) => {
   const [remainingWords, setRemainingWords] = useState<string[]>([]);
   const [completedWords, setCompletedWords] = useState<string[]>([]);
   const [currentWordInput, setCurrentWordInput] = useState<string>("");
+  const [elapsedTimeSec, setElapsedTimeSec] = useState<number>(0);
+  const [wpm, setWpm] = useState<number>(0);
+  const [mistakesCount, setMistakesCount] = useState<number>(0);
+  const [accuracy, setAccuracy] = useState<number>(0.0);
   
-  useEffect(() => {
-    setText(inputText);
-    setRemainingWords(inputText.split(" "));
-  }, []);
 
   useEffect(() => {
-    const currentInput = currentWordInput.substring(currentWordInput.length - 1);
-    if (currentInput != " ") {
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const elapsedTimeMiliseconds = Date.now() - startTime;
+      setElapsedTimeSec(elapsedTimeMiliseconds / 1000);
+    }, 1000);
+
+    setRemainingWords(text.split(" "));
+
+    return () => clearInterval(interval);
+  }, []);
+
+  
+  useEffect(() => {
+    const elapsedTimeMin = elapsedTimeSec / 60;
+    const wpm = completedWords.length / elapsedTimeMin;
+    
+    if (isNaN(wpm)) {
+      setWpm(0);
+    } else {
+      setWpm(wpm);
+    }  
+  }, [elapsedTimeSec, completedWords])
+
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentWordInput(e.target.value);
+  };
+  
+  useEffect(() => {
+    const indexOfCurrentInput = currentWordInput.length - 1;
+    if (indexOfCurrentInput < 0) {
+      return;
+    }
+    
+    const currentWord = remainingWords[0];
+
+    // const AVERAGE_WORD_LENGTH = 5;
+    // const totalNumberOfCharacters = completedWords.length * AVERAGE_WORD_LENGTH + currentWordInput.length;
+    // setAccuracy((totalNumberOfCharacters - mistakesCount) / totalNumberOfCharacters);
+
+    if (currentWordInput[indexOfCurrentInput] != " ") {
       return;
     }
 
-    const currentWord = remainingWords[0];
     if (currentWordInput.trim() === currentWord) {
       setCompletedWords([...completedWords, currentWord]);
       setRemainingWords(remainingWords.slice(1));
 
       setCurrentWordInput("");
     }
-
-
   }, [currentWordInput]);
 
-  useEffect(() => {
-    console.log("Remaining words: " + remainingWords.length);
-    console.log("Completed words: " + completedWords.length);
-  }, [remainingWords, completedWords]);
 
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCurrentWordInput(e.target.value);
-  };
   
   return (
     <div className="flex flex-row flex-wrap justify-center">
+      <div className="flex flex-row justify-center items-center">
+        <h1 className="p-5">WPM: { wpm }</h1>
+        <h1 className="p-5">ACC: { accuracy } </h1>
+        <h1 className="p-5">Elapsed time: { elapsedTimeSec }</h1>
+      </div>
+
       <div className="p-20 px-50 flex flex-row flex-wrap justify-left align-center">
         {text.split(" ").map((word, wordIndex) => {
           const isCurrentWord = wordIndex === completedWords.length;
