@@ -1,36 +1,43 @@
 'use client'
 
 
-import React, { useEffect, useState } from 'react';
+import React, { KeyboardEventHandler, useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 
 
 interface TypeTesterProps {
+  title: string;
   text: string;
 
 }
 
-const TypeTester: React.FC<TypeTesterProps> = ({ text }) => {
-  const [remainingWords, setRemainingWords] = useState<string[]>([]);
+const TypeTester: React.FC<TypeTesterProps> = ({ title, text }) => {
+  const [remainingWords, setRemainingWords] = useState<string[]>(text.split(" "));
   const [completedWords, setCompletedWords] = useState<string[]>([]);
-  const [currentWordInput, setCurrentWordInput] = useState<string>("");
+  const [lastWordInput, setLastWordInput] = useState<string>("");
+  
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null); 
   const [elapsedTimeSec, setElapsedTimeSec] = useState<number>(0);
+
   const [wpm, setWpm] = useState<number>(0);
   const [mistakesCount, setMistakesCount] = useState<number>(0);
-  const [accuracy, setAccuracy] = useState<number>(0.0);
-  
+  const [accuracyPercentage, setAccuracyPercentage] = useState<number>(0.0);
 
-  useEffect(() => {
+
+  const startTimerInterval = () => {
     const startTime = Date.now();
-    const interval = setInterval(() => {
+    timerIntervalRef.current = setInterval(() => {
       const elapsedTimeMiliseconds = Date.now() - startTime;
       setElapsedTimeSec(elapsedTimeMiliseconds / 1000);
     }, 1000);
+  };
 
-    setRemainingWords(text.split(" "));
 
-    return () => clearInterval(interval);
-  }, []);
+  const stopTimerInterval = () => {
+    if (timerIntervalRef.current !== null) {
+      clearInterval(timerIntervalRef.current);
+    }
+  };
 
   
   useEffect(() => {
@@ -45,88 +52,128 @@ const TypeTester: React.FC<TypeTesterProps> = ({ text }) => {
   }, [elapsedTimeSec, completedWords])
 
 
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setCurrentWordInput(e.target.value);
-  };
-  
   useEffect(() => {
-    const indexOfCurrentInput = currentWordInput.length - 1;
-    if (indexOfCurrentInput < 0) {
+    const AVERAGE_WORD_LENGTH = 5;
+    const totalInputedCharacters = completedWords.length * AVERAGE_WORD_LENGTH + lastWordInput.length;
+
+    if (totalInputedCharacters == 0) {
+      setAccuracyPercentage(0);
+      return;
+    }
+
+    const accuracy = Math.max(0, (totalInputedCharacters - mistakesCount) / totalInputedCharacters);
+    setAccuracyPercentage(accuracy * 100);
+  }, [mistakesCount, completedWords]);
+  
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!remainingWords) {
       return;
     }
     
-    const currentWord = remainingWords[0];
+    if (timerIntervalRef.current == null) {
+      startTimerInterval();
+    }
+    
+    const currentWordInput = e.target.value;
 
-    // const AVERAGE_WORD_LENGTH = 5;
-    // const totalNumberOfCharacters = completedWords.length * AVERAGE_WORD_LENGTH + currentWordInput.length;
-    // setAccuracy((totalNumberOfCharacters - mistakesCount) / totalNumberOfCharacters);
-
-    if (currentWordInput[indexOfCurrentInput] != " ") {
+    if (currentWordInput.length <= lastWordInput.length) {
+      setLastWordInput(currentWordInput);
       return;
     }
 
-    if (currentWordInput.trim() === currentWord) {
-      setCompletedWords([...completedWords, currentWord]);
-      setRemainingWords(remainingWords.slice(1));
+    const currentWordInText = remainingWords[0];
+    const indexOfNewCharacter = e.target.selectionStart ? e.target.selectionStart - 1 : 0;
 
-      setCurrentWordInput("");
+    if (currentWordInput[indexOfNewCharacter] == " " && currentWordInput.trim() === currentWordInText) {
+      const newRemainingWords = [...remainingWords.slice(1)]
+      setRemainingWords(newRemainingWords);
+      setCompletedWords([...completedWords, currentWordInText]);
+      setLastWordInput("");
+
+      if (newRemainingWords.length == 0) {
+        stopTimerInterval();
+      }
+      return;
     }
-  }, [currentWordInput]);
+
+    if (currentWordInText[indexOfNewCharacter] != currentWordInput[indexOfNewCharacter]) {
+      setMistakesCount(mistakesCount + 1);
+    }
+    
+    setLastWordInput(currentWordInput);
+  };
 
 
-  
   return (
-    <div className="flex flex-row flex-wrap justify-center">
-      <div className="flex flex-row justify-center items-center">
-        <h1 className="p-5">WPM: { wpm }</h1>
-        <h1 className="p-5">ACC: { accuracy } </h1>
-        <h1 className="p-5">Elapsed time: { elapsedTimeSec }</h1>
+    <div className="flex h-screen items-center justify-center bg-sky-300">
+      <div className="w-full max-w-3xl rounded-md bg-white p-6 shadow-md">
+
+      <div className="flex flex-row justify-between items-start">   
+
+        <div className="flex flex-col items-start grow justify-between">
+          <h1 className="mb-4 text-2xl font-semibold">{ title }</h1>
+
+          <div className="flex flex-row justify-start gap-x-4">
+            <h1 className="text-m text-gray-600">WPM: { wpm.toFixed(0) }</h1>
+            <h1 className="text-m text-gray-600">ACC: { accuracyPercentage.toFixed(0) }%</h1>
+          </div>
+        </div>
+
+        <h1 className="text-m text-gray-600">Elapsed time: { elapsedTimeSec.toFixed(0) }s</h1>
       </div>
 
-      <div className="p-20 px-50 flex flex-row flex-wrap justify-left align-center">
-        {text.split(" ").map((word, wordIndex) => {
-          const isCurrentWord = wordIndex === completedWords.length;
+
+        <div className="my-4 w-full flex flex-wrap px-3 py-2">
+          {text.split(" ").map((word, wordIndex) => {
+            const isCurrentWord = wordIndex === completedWords.length;
           
-          return (
-            <span 
-              className={clsx(
-                'mr-1',
-                {
-                  'underline underline-offset-8 decoration-2 decoration-sky-400': isCurrentWord,
-                },
-              )}
-              key={ wordIndex }>
+            return (
+              <span 
+                className={clsx(
+                  'mr-1',
+                  {
+                    'underline underline-offset-8 decoration-2 decoration-sky-400': isCurrentWord,
+                  },
+                )}
+                key={ wordIndex }
+              >
 
-              {word.split("").map((letter, letterIndex) => {
-                const isCurrentLetter = isCurrentWord && letterIndex === currentWordInput.length;
-                const isIncorrectInput = isCurrentWord && currentWordInput[letterIndex] && letter !== currentWordInput[letterIndex];
+                {word.split("").map((letter, letterIndex) => {
+                  const isCurrentLetter = isCurrentWord && letterIndex === lastWordInput.length;
+                  const isIncorrectInput = isCurrentWord && lastWordInput[letterIndex] && letter !== lastWordInput[letterIndex];
 
-                return (<span
-                        className={clsx(
-                          'text-lg',
-                          {
-                            'bg-sky-400 text-black': isCurrentLetter,
-                            'bg-red-400': isIncorrectInput,
-                          },
-                        )}
-                        key={ wordIndex + letterIndex }
-                        >
-                          { letter }
-                        </span>)
-              })}
-            </span>
-          );
-        })}
+                  return (
+                    <span
+                      className={clsx(
+                        'text-xl',
+                        {
+                          'bg-sky-400 text-black': isCurrentLetter,
+                          'bg-red-400': isIncorrectInput,
+                        },
+                      )}
+                      key={ wordIndex + letterIndex }
+                    >
+                      { letter }
+                    </span>)
+                })}
+              </span>
+            );
+          })}
         </div>
-      
-      <input
-        className="text-black"
-        name="current-word-input"
-        type="text"
-        onChange={handleInput}
-        value={currentWordInput}
-        autoFocus={true}
-      />
+
+        <div className="mt-4">
+          <label htmlFor="typedText" className="text-gray-600">Type here:</label>
+          <input 
+            className="w-full text-xl rounded-md border px-3 py-2 bg-sky-200 focus:border-blue-400 focus:outline-none"
+            type="text" 
+            id="typedText"
+            autoFocus={true}
+            onChange={handleInput}
+            value={lastWordInput}
+          />
+        </div>
+      </div>
     </div>
   );
 }

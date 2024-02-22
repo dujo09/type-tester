@@ -5,7 +5,7 @@ import TypeTester from '@/app/ui/type-tester'
 const Page: React.FC = () => {
 
   return (
-    <TypeTester inputText='Lorem ipsum dolor sit amet consectetur adipisicing elit. Id aperiam fugit fugiat ab, dolorum modi aspernatur laudantium iste blanditiis pariatur sit sequi ipsam ut. Nemo sapiente ea cumque cupiditate tenetur?' />
+    <TypeTester title="Wolf Hall" text="Christ, he thinks, by my age I ought to know. You don't get on by being original." />
   )
 }
 
