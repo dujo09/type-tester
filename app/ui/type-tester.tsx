@@ -67,7 +67,8 @@ const TypeTester: React.FC<TypeTesterProps> = ({ title, text }) => {
   
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!remainingWords) {
+    if (remainingWords.length <= 0) {
+      stopTimerInterval();
       return;
     }
     

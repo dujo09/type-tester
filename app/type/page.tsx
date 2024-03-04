@@ -1,11 +1,14 @@
 import React from 'react';
 import TypeTester from '@/app/ui/type-tester'
+import { fetchRandomTextEntry } from '@/app/lib/data';
 
 
-const Page: React.FC = () => {
+const Page: React.FC = async () => {
+
+  const randomTextEntry = await fetchRandomTextEntry();
 
   return (
-    <TypeTester title="Wolf Hall" text="Christ, he thinks, by my age I ought to know. You don't get on by being original." />
+    <TypeTester title={randomTextEntry.title} text={randomTextEntry.text} />
   )
 }
 
